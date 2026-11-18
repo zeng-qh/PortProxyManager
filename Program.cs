@@ -53,13 +53,21 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 // 作为 Windows 服务运行时挂接 SCM（未以服务方式运行时内部会自动跳过）
 if (OperatingSystem.IsWindows()) builder.Host.UseWindowsService();
 
-// Web 监听地址/端口：命令行 --urls 优先，其次读设置文件，最后默认 127.0.0.1:5577
-if (string.IsNullOrWhiteSpace(builder.Configuration["urls"]))
+// Web 监听地址/端口：命令行 --urls 优先，其次读设置文件，最后默认 0.0.0.0:5577
+// boundPort 记录实际监听端口，启动时用于幂等放通防火墙
+var boundPort = 5577;
+var urlsCfg = builder.Configuration["urls"];
+if (string.IsNullOrWhiteSpace(urlsCfg))
 {
     var st0 = store.LoadSettings();
-    var host0 = RuleValidator.IsIp(st0.ListenHost) ? st0.ListenHost : "127.0.0.1";
+    var host0 = RuleValidator.IsIp(st0.ListenHost) ? st0.ListenHost : "0.0.0.0";
     var port0 = st0.ListenPort is >= 1 and <= 65535 ? st0.ListenPort : 5577;
     builder.WebHost.UseUrls($"http://{host0}:{port0}");
+    boundPort = port0;
+}
+else if (Uri.TryCreate(urlsCfg.Split(';')[0].Trim(), UriKind.Absolute, out var u0))
+{
+    boundPort = u0.Port;
 }
 
 builder.Logging.ClearProviders();
@@ -548,13 +556,28 @@ static async Task<(bool ok, string message)> ApplyOne(PortProxyRule rule, NetshS
         return (false, $"已保存，但执行失败：{add.Message}");
     }
 
-    if (rule.OpenFirewall) await netsh.AllowFirewallAsync(rule.ListenPort);
+    if (rule.OpenFirewall) await netsh.EnsureFirewallAsync(rule.ListenPort);
 
     l.Ok($"立即生效成功 {rule.Describe()}");
     return (true, "已保存并立即生效");
 }
 
 app.MapGet("/health", () => Results.Ok(new { ok = true, time = DateTime.Now }));
+
+// 启动即幂等放通 Web 端口防火墙（默认 0.0.0.0 监听，局域网可通过本机 IP 访问）
+if (NetshService.IsAdministrator())
+{
+    var nfw = app.Services.GetRequiredService<NetshService>();
+    var fw = await nfw.EnsureWebFirewallAsync(boundPort);
+    log.Info(fw.Ok
+        ? $"Web 端口 {boundPort} 防火墙已放通（幂等检查）"
+        : $"Web 端口 {boundPort} 防火墙放通失败：{fw.Message}");
+    Console.WriteLine($" Web 端口防火墙: {(fw.Ok ? $"已放通 ({boundPort})" : "放通失败：" + fw.Message)}");
+}
+else
+{
+    Console.WriteLine(" Web 端口防火墙: 非管理员，跳过放通");
+}
 
 var url = builder.Configuration["urls"]
           ?? $"http://{store.LoadSettings().ListenHost}:{store.LoadSettings().ListenPort}";

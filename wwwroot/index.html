@@ -191,7 +191,7 @@
     </div>
     <div class="tip">
       「删除未登记规则」开启后，巡检会把系统里存在但本工具没登记的规则一并清掉，谨慎开启。<br>
-      Web 监听改为局域网地址后，其他设备用 <span class="mono" id="remote-url">http://本机IP:端口</span> 访问本页（会自动放通该端口防火墙）；改监听地址/端口需重启生效。
+      Web 监听默认 <span class="mono">0.0.0.0</span>（所有网卡）：用 <span class="mono" id="remote-url">http://本机IP:端口</span> 或 127.0.0.1 都能访问，程序启动时自动放通端口防火墙；只想本机访问可改回 127.0.0.1。改监听地址/端口需重启生效。
     </div>
   </div>
 

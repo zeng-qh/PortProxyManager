@@ -97,7 +97,22 @@ public sealed class NetshService
     public Task<NetshResult> AllowFirewallAsync(int port, CancellationToken ct = default) =>
         RunAsync($"advfirewall firewall add rule name=\"PortProxy_{port}\" dir=in action=allow protocol=TCP localport={port}", ct);
 
-    /// <summary>放通 Web 管理页端口，让局域网内其他设备能访问。</summary>
+    /// <summary>幂等放通转发端口：规则已存在则跳过，避免反复应用堆积同名规则。</summary>
+    public async Task<NetshResult> EnsureFirewallAsync(int port, CancellationToken ct = default)
+    {
+        var q = await RunAsync($"advfirewall firewall show rule name=\"PortProxy_{port}\"", ct);
+        if (q.Ok) return q; // 已存在（show 返回 0）
+        return await AllowFirewallAsync(port, ct);
+    }
+
+    /// <summary>幂等放通 Web 管理页端口，让局域网内其他设备能访问。</summary>
+    public async Task<NetshResult> EnsureWebFirewallAsync(int port, CancellationToken ct = default)
+    {
+        var q = await RunAsync($"advfirewall firewall show rule name=\"PortProxyManager_Web_{port}\"", ct);
+        if (q.Ok) return q; // 已存在
+        return await AllowWebFirewallAsync(port, ct);
+    }
+
     public Task<NetshResult> AllowWebFirewallAsync(int port, CancellationToken ct = default) =>
         RunAsync($"advfirewall firewall add rule name=\"PortProxyManager_Web_{port}\" dir=in action=allow protocol=TCP localport={port}", ct);
 }

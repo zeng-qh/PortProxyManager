@@ -112,8 +112,9 @@ public sealed class ReconcileService
 
     private async Task OpenFirewallAsync(PortProxyRule rule, ReconcileReport report, CancellationToken ct)
     {
-        var fw = await _netsh.AllowFirewallAsync(rule.ListenPort, ct);
-        if (!fw.Ok && !fw.Message.Contains("已存在", StringComparison.OrdinalIgnoreCase))
+        // 幂等：规则已存在时直接跳过，不重复添加
+        var fw = await _netsh.EnsureFirewallAsync(rule.ListenPort, ct);
+        if (!fw.Ok)
         {
             report.Failed.Add($"防火墙放通失败 端口 {rule.ListenPort} - {fw.Message}");
         }

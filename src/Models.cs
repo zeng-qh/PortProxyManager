@@ -37,8 +37,8 @@ public sealed class AppSettings
     /// <summary>恢复规则时是否顺带放通 Windows 防火墙入站端口。</summary>
     public bool ApplyFirewall { get; set; }
 
-    /// <summary>Web 管理页监听地址：127.0.0.1 仅本机，0.0.0.0 / :: 允许局域网访问（保存后需重启生效）。</summary>
-    public string ListenHost { get; set; } = "127.0.0.1";
+    /// <summary>Web 管理页监听地址：默认 0.0.0.0 监听所有网卡（本机 IP / 局域网均可访问）；仅本机访问可改回 127.0.0.1。保存后需重启生效。</summary>
+    public string ListenHost { get; set; } = "0.0.0.0";
 
     /// <summary>Web 管理页监听端口。</summary>
     public int ListenPort { get; set; } = 5577;
