@@ -108,15 +108,25 @@ if (webRoot != null)
 {
     var provider = new PhysicalFileProvider(webRoot);
     app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = provider });
-    app.UseStaticFiles(new StaticFileOptions { FileProvider = provider });
+    // index.html 禁缓存：程序更新后重新打开页面必定拿到最新 UI
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = provider,
+        OnPrepareResponse = ctx =>
+        {
+            if (ctx.File.Name == "index.html")
+                ctx.Context.Response.Headers["Cache-Control"] = "no-cache";
+        }
+    });
 }
 
 // 兜底：静态文件万一没命中，也保证 / 和 /index.html 一定能返回页面
 app.MapGet("/", ServeIndex);
 app.MapGet("/index.html", ServeIndex);
 
-IResult ServeIndex()
+IResult ServeIndex(HttpContext ctx)
 {
+    ctx.Response.Headers["Cache-Control"] = "no-cache";
     var file = webRoot == null ? null : Path.Combine(webRoot, "index.html");
     if (file != null && File.Exists(file))
         return Results.Content(File.ReadAllText(file), "text/html; charset=utf-8");
