@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    # 发布 Release 需要写权限（GitHub 默认令牌只读）
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
