@@ -21,7 +21,19 @@
 
 ## 快速开始
 
-### 运行（推荐）
+### 下载预编译版本
+
+推送到 `main` 会触发 GitHub Actions 自动构建三种包（仓库 **Actions → 最新 run → Artifacts** 下载）：
+
+| 包 | 说明 |
+|---|---|
+| `PortProxyManager-win-x86.zip` | **32 位自包含**，免装任何环境 |
+| `PortProxyManager-win-x64.zip` | **64 位自包含**，免装任何环境 |
+| `PortProxyManager-framework-dependent.zip` | 依赖 .NET 10 Runtime，体积小 |
+
+三种包都带 `start-admin.bat` 启动器，解压后双击即可（以管理员运行）。推送 `v*` 标签（如 `git tag v1.0.0 && git push --tags`）会自动创建 GitHub Release 并附上三个包。
+
+### 运行（本地构建）
 
 1. 双击 `publish/start-admin.bat`（以管理员拉起，netsh 写入需要提权）
 2. 浏览器打开 <http://127.0.0.1:5577>
