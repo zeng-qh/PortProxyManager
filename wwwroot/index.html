@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PortProxy Manager</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --line:#e3e6ea; --text:#1f2328; --muted:#6b7280;
+    --primary:#2563eb; --ok:#16a34a; --warn:#d97706; --err:#dc2626;
+    --soft:#f1f5f9; --soft2:#fafbfc; --input-bg:#ffffff;
+  }
+  body.dark{
+    --bg:#0b1220; --card:#151d2e; --line:#2a3a55; --text:#dbe4f3; --muted:#8fa0b8;
+    --primary:#3b82f6; --soft:#1d283f; --soft2:#182338; --input-bg:#101828;
+  }
+  body.dark .b-ok{background:#12301f;color:#6ee7a0;border-color:#1f5133}
+  body.dark .b-err{background:#3a1414;color:#f87171;border-color:#6b1d1d}
+  body.dark .b-warn{background:#33230a;color:#fbbf24;border-color:#5a3d10}
+  body.dark .b-off{background:#1c2536;color:#8fa0b8;border-color:#2a3a55}
+  body.dark button{background:var(--card);border-color:var(--line);color:var(--text)}
+  body.dark button.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+  body.dark button.primary:hover{background:#2b6cd9}
+  body.dark button.danger{background:var(--card);border-color:#6b1d1d;color:#f87171}
+  body.dark button.danger:hover{background:#2a1414}
+  body.dark button:hover{background:var(--soft)}
+  body.dark input,body.dark select{background:var(--input-bg);border-color:var(--line);color:var(--text)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;transition:background .2s,color .2s}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+  .card h2{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:12px;color:var(--muted)}
+  input[type=text],input[type=number],input[type=password],select{padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--input-bg);color:var(--text)}
+  input:focus,select:focus{outline:2px solid #bfd3ff;border-color:var(--primary)}
+  body.dark input:focus,body.dark select:focus{outline:2px solid #1e4a8f}
+  button{padding:7px 14px;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer;font-size:13px;color:var(--text)}
+  button:hover{background:var(--soft)}
+  button.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+  button.primary:hover{background:#1d4ed8}
+  button.danger{background:var(--card);border-color:#f0b4b4;color:var(--err)}
+  button.danger:hover{background:#fef2f2}
+  button.sm{padding:4px 9px;font-size:12px}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  th{color:var(--muted);font-weight:600;font-size:12px;background:var(--soft2)}
+  tbody tr:hover{background:var(--soft2)}
+  .mono{font-family:ui-monospace,Consolas,Menlo,monospace}
+  .badge{display:inline-block;padding:1px 8px;border-radius:20px;font-size:12px;border:1px solid transparent;white-space:nowrap}
+  .b-ok{background:#e8f6ed;color:var(--ok);border-color:#bfe5cd}
+  .b-err{background:#fdecec;color:var(--err);border-color:#f5c2c2}
+  .b-warn{background:#fdf3e3;color:var(--warn);border-color:#f3ddb0}
+  .b-off{background:#f1f2f4;color:var(--muted);border-color:#e3e6ea}
+  .muted{color:var(--muted)}
+  .empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}
+  #logs{max-height:280px;overflow:auto;background:#0f172a;color:#d7e0ee;border-radius:8px;padding:12px;font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.7}
+  #logs .l-ERROR{color:#fca5a5}
+  #logs .l-WARN{color:#fcd34d}
+  #logs .l-OK{color:#86efac}
+  #logs .l-INFO{color:#cbd5e1}
+  .stat{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .stat b{color:var(--text);font-weight:600}
+  .tip{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.9}
+  .chk{display:flex;align-items:center;gap:6px;font-size:13px;padding-bottom:2px}
+  .divider{border-top:1px dashed var(--line);margin:14px 0}
+  /* 登录浮层 */
+  #login-mask{position:fixed;inset:0;background:rgba(5,12,24,.62);display:flex;align-items:center;justify-content:center;z-index:99}
+  .login-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:26px 28px;width:340px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+  .login-card h2{margin:0 0 8px;font-size:16px}
+  .login-card input{width:100%;margin:10px 0}
+  .login-card button{width:100%}
+  #login-err{color:var(--err);font-size:12px;min-height:16px;margin-top:6px}
+</style>
+</head>
+<body>
+<div id="login-mask" hidden>
+  <div class="login-card">
+    <h2>🔒 访问令牌</h2>
+    <div class="muted" style="font-size:13px">本管理页已启用令牌鉴权，请输入访问令牌继续。</div>
+    <input type="password" id="login-token" placeholder="访问令牌" autocomplete="off">
+    <button class="primary" id="btn-login">进入</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>PortProxy Manager</h1>
+      <div class="sub">通过网页管理本机 <span class="mono">netsh interface portproxy</span> 转发规则（IPv4/IPv6），保存即立即生效；规则丢失自动补回，支持服务方式开机自启与局域网远程访问。</div>
+    </div>
+    <button class="sm" id="btn-theme">🌙 深色</button>
+  </div>
+
+  <div class="card">
+    <h2>运行状态</h2>
+    <div class="stat" id="stat"></div>
+  </div>
+
+  <div class="card">
+    <h2>新增 / 修改规则 <span class="badge b-off" id="f-mode" title="由两端地址族自动推导">v4tov4</span></h2>
+    <div class="row">
+      <div class="field"><label>监听地址（默认本机 IP，支持 IPv6）</label>
+        <input type="text" id="f-listen" list="ip-list" placeholder="自动带出本机 IP" style="width:180px" autocomplete="off">
+        <datalist id="ip-list"></datalist>
+      </div>
+      <div class="field"><label>监听端口</label><input type="number" id="f-lport" placeholder="66" style="width:100px"></div>
+      <div class="field"><label>目标地址（手填，支持 IPv6）</label><input type="text" id="f-conn" placeholder="192.168.137.167" style="width:170px" autocomplete="off"></div>
+      <div class="field"><label>目标端口</label><input type="number" id="f-cport" placeholder="22" style="width:100px"></div>
+      <div class="field"><label>备注</label><input type="text" id="f-note" placeholder="可选" style="width:150px"></div>
+      <label class="chk"><input type="checkbox" id="f-fw"> 放通防火墙</label>
+      <button class="primary" id="btn-save">保存并立即生效</button>
+      <button id="btn-clear">清空表单</button>
+    </div>
+    <div class="tip">
+      监听地址默认自动带出本机 IP，可下拉切换其它网卡，或
+      <button class="sm" id="btn-any" type="button">用 0.0.0.0（所有 IPv4）</button>
+      <button class="sm" id="btn-any6" type="button">用 ::（所有 IPv6）</button>
+      ；目标地址手动填写要转发到的机器。转发模式由两端地址族自动推导，保存后立刻执行 netsh 写入系统。
+    </div>
+    <div class="tip mono" id="ip-hint"></div>
+  </div>
+
+  <div class="card">
+    <h2>已登记规则 <span class="muted" id="rule-count"></span></h2>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="primary sm" id="btn-apply">全部应用</button>
+      <button class="sm" id="btn-export">导出 JSON</button>
+      <button class="sm" id="btn-import">导入 JSON</button>
+      <select id="imp-mode" style="width:90px" title="导入模式">
+        <option value="merge">合并</option>
+        <option value="replace">替换</option>
+      </select>
+      <input type="file" id="imp-file" accept=".json,application/json" hidden>
+      <button class="danger sm" id="btn-reset">清空系统全部规则</button>
+    </div>
+    <table id="tbl-rules"><thead><tr>
+      <th>监听</th><th>目标</th><th>模式</th><th>状态</th><th>防火墙</th><th>备注</th><th>操作</th>
+    </tr></thead><tbody></tbody></table>
+    <div class="tip">导入：合并 = 保留现有规则、相同监听以导入为准；替换 = 清空现有后仅保留导入规则。导入后立即应用。</div>
+  </div>
+
+  <div class="card">
+    <h2>系统当前生效规则 <span class="muted">（netsh 实际输出，只读）</span></h2>
+    <table id="tbl-actual"><thead><tr><th>监听地址</th><th>监听端口</th><th>目标地址</th><th>目标端口</th><th>模式</th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>巡检与访问设置</h2>
+    <div class="row">
+      <div class="field"><label>巡检间隔（秒，最小 5）</label><input type="number" id="s-interval" style="width:110px"></div>
+      <label class="chk"><input type="checkbox" id="s-auto"> 自动巡检恢复</label>
+      <label class="chk"><input type="checkbox" id="s-unknown"> 删除未登记规则</label>
+      <label class="chk"><input type="checkbox" id="s-fw"> 应用时放通防火墙</label>
+    </div>
+    <div class="divider"></div>
+    <div class="row">
+      <div class="field"><label>Web 监听地址（其他设备访问）</label>
+        <select id="s-host" style="width:190px">
+          <option value="127.0.0.1">仅本机（127.0.0.1）</option>
+          <option value="0.0.0.0">局域网（0.0.0.0）</option>
+          <option value="::">局域网 IPv6（::）</option>
+        </select>
+      </div>
+      <div class="field"><label>Web 端口</label><input type="number" id="s-port" style="width:100px"></div>
+      <label class="chk"><input type="checkbox" id="s-auth"> 启用访问令牌</label>
+      <div class="field"><label>访问令牌（可修改，启用鉴权后其他设备需输入）</label>
+        <input type="text" id="s-token" class="mono" style="width:300px" placeholder="启用鉴权后自动生成" autocomplete="off">
+      </div>
+      <button class="primary" id="btn-settings">保存设置</button>
+      <button id="btn-restart" hidden>重启生效</button>
+    </div>
+    <div class="tip">
+      「删除未登记规则」开启后，巡检会把系统里存在但本工具没登记的规则一并清掉，谨慎开启。<br>
+      Web 监听改为局域网地址后，其他设备用 <span class="mono" id="remote-url">http://本机IP:端口</span> 访问本页（会自动放通该端口防火墙）；改监听地址/端口需重启生效。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>开机自启（Windows 服务） <span class="badge b-off" id="svc-badge">检测中…</span></h2>
+    <div class="row">
+      <button class="primary sm" id="svc-install">安装服务</button>
+      <button class="sm" id="svc-start">启动</button>
+      <button class="sm" id="svc-stop">停止</button>
+      <button class="danger sm" id="svc-uninstall">卸载服务</button>
+    </div>
+    <div class="tip">
+      安装后以 <span class="mono">LocalSystem</span> 开机自动运行：无需登录 Windows、无 UAC 弹窗，进程崩溃自动拉起，安装后无需再双击 <span class="mono">start-admin.bat</span>。安装/卸载需要管理员权限。
+    </div>
+    <div class="tip mono muted" id="svc-path"></div>
+  </div>
+
+  <div class="card">
+    <h2>日志</h2>
+    <div id="logs"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let editingId = null;
+let curSettings = null;
+
+/* ---------- 主题 ---------- */
+function applyTheme(dark){
+  document.body.classList.toggle('dark', dark);
+  $('btn-theme').textContent = dark ? '☀️ 浅色' : '🌙 深色';
+}
+applyTheme(localStorage.getItem('pp_theme')
+  ? localStorage.getItem('pp_theme')==='dark'
+  : matchMedia('(prefers-color-scheme: dark)').matches);
+$('btn-theme').onclick = () => {
+  const d = !document.body.classList.contains('dark');
+  applyTheme(d);
+  localStorage.setItem('pp_theme', d?'dark':'light');
+};
+
+/* ---------- 鉴权 ---------- */
+let authShown = false;
+function showLogin(){
+  if(authShown) return;
+  authShown = true;
+  $('login-mask').hidden = false;
+  $('login-token').focus();
+}
+$('btn-login').onclick = async () => {
+  const t = $('login-token').value.trim();
+  if(!t){ $('login-err').textContent = '请输入令牌'; return; }
+  try{
+    const res = await fetch('/api/auth?token='+encodeURIComponent(t));
+    const j = await res.json().catch(()=>({}));
+    if(res.ok && j.ok){
+      localStorage.setItem('pp_token', t);
+      $('login-mask').hidden = true; authShown = false; $('login-err').textContent='';
+      load(); loadService();
+    } else {
+      $('login-err').textContent = j.message || '令牌错误';
+    }
+  }catch(e){ $('login-err').textContent = '连接失败：'+e.message; }
+};
+$('login-token').addEventListener('keydown', e => { if(e.key==='Enter') $('btn-login').click(); });
+
+async function api(url, method, body){
+  const opt = {method, headers:{}};
+  const t = localStorage.getItem('pp_token');
+  if(t) opt.headers['X-Auth-Token'] = t;
+  if(body){opt.headers['Content-Type']='application/json'; opt.body=JSON.stringify(body);}
+  const res = await fetch(url, opt);
+  if(res.status===401){ showLogin(); throw new Error('unauthorized'); }
+  return await res.json();
+}
+
+function el(tag, text){ const e=document.createElement(tag); if(text!==undefined) e.textContent=text; return e; }
+function cell(text, cls){ const td=el('td'); if(cls) td.className=cls; td.textContent=text; return td; }
+
+/* ---------- 模式推导（前端预览） ---------- */
+const isV6 = s => (s||'').includes(':');
+function deriveMode(l, c){ return isV6(l)&&isV6(c)?'v6tov6':isV6(l)?'v6tov4':isV6(c)?'v4tov6':'v4tov4'; }
+function refreshModeBadge(){
+  const l=$('f-listen').value.trim(), c=$('f-conn').value.trim();
+  const m = (l&&c) ? deriveMode(l,c) : '—';
+  $('f-mode').textContent = (l&&c) ? '将创建 '+m : '模式：填入两端地址后自动推导';
+}
+['f-listen','f-conn'].forEach(id => $(id).addEventListener('input', refreshModeBadge));
+
+/* ---------- 主加载 ---------- */
+async function load(){
+  let s;
+  try{ s = await api('/api/state','GET'); }
+  catch(e){ if(!authShown) $('stat').textContent='无法连接服务：'+e.message; return; }
+  curSettings = s.settings;
+
+  $('stat').innerHTML='';
+  const items = [
+    ['权限', s.isAdmin ? '管理员' : '非管理员', s.isAdmin ? 'b-ok' : 'b-err'],
+    ['运行方式', s.runningAsService ? 'Windows 服务' : '控制台', s.runningAsService ? 'b-ok' : 'b-off'],
+    ['巡检', s.settings.autoRecover ? `开启（每 ${s.settings.intervalSec}s）` : '已关闭', s.settings.autoRecover ? 'b-ok' : 'b-off'],
+    ['上次巡检', s.watchdog.lastRun ? new Date(s.watchdog.lastRun).toLocaleTimeString('zh-CN') : '—', s.watchdog.lastOk ? 'b-ok' : 'b-err'],
+    ['结果', s.watchdog.lastSummary, s.watchdog.lastOk ? 'b-ok' : 'b-err'],
+    ['Web 监听', `${s.settings.listenHost}:${s.settings.listenPort}` + (s.settings.authEnabled ? '（鉴权开）' : ''), s.settings.authEnabled ? 'b-warn' : 'b-off'],
+    ['系统规则', s.actual.length + ' 条', 'b-off'],
+  ];
+  for(const [k,v,b] of items){
+    const d=el('div'); d.appendChild(el('b', k+'：'));
+    const sp=el('span', ' '+v); sp.className='badge '+b; d.appendChild(sp);
+    $('stat').appendChild(d);
+  }
+
+  const tb=$('tbl-rules').querySelector('tbody'); tb.innerHTML='';
+  $('rule-count').textContent = `(${s.rules.length})`;
+  if(!s.rules.length){ const tr=el('tr'); const td=cell('还没有登记规则，先在上方添加一条'); td.colSpan=7; td.className='empty'; tr.appendChild(td); tb.appendChild(tr); }
+  s.rules.forEach(r=>{
+    const tr=el('tr');
+    tr.appendChild(cell(`${r.listenAddress}:${r.listenPort}`,'mono'));
+    tr.appendChild(cell(`${r.connectAddress}:${r.connectPort}`,'mono'));
+    const mc=cell(''); const mb=el('span', r.mode||deriveMode(r.listenAddress,r.connectAddress)); mb.className='badge b-off'; mc.appendChild(mb); tr.appendChild(mc);
+    const st=cell(''); const b=el('span', r.enabled?'已生效':'已禁用'); b.className='badge '+(r.enabled?'b-ok':'b-off'); st.appendChild(b); tr.appendChild(st);
+    tr.appendChild(cell(r.openFirewall?'是':'—'));
+    tr.appendChild(cell(r.note||'—'));
+    const op=el('td');
+    const mk=(t,fn,cls)=>{const x=el('button',t); x.className='sm'+(cls?' '+cls:''); x.onclick=fn; return x;};
+    op.appendChild(mk('编辑',()=>edit(r)));
+    op.appendChild(document.createTextNode(' '));
+    op.appendChild(mk(r.enabled?'禁用':'启用',()=>toggle(r.id)));
+    op.appendChild(document.createTextNode(' '));
+    op.appendChild(mk('删除',()=>del(r.id),'danger'));
+    tr.appendChild(op);
+    tb.appendChild(tr);
+  });
+
+  const ab=$('tbl-actual').querySelector('tbody'); ab.innerHTML='';
+  if(!s.actual.length){ const tr=el('tr'); const td=cell('系统当前没有 portproxy 规则'); td.colSpan=5; td.className='empty'; tr.appendChild(td); ab.appendChild(tr); }
+  s.actual.forEach(a=>{
+    const tr=el('tr');
+    tr.appendChild(cell(a.listenAddress,'mono'));
+    tr.appendChild(cell(String(a.listenPort),'mono'));
+    tr.appendChild(cell(a.connectAddress,'mono'));
+    tr.appendChild(cell(String(a.connectPort),'mono'));
+    const mc=cell(''); const mb=el('span', a.mode||'—'); mb.className='badge b-off'; mc.appendChild(mb); tr.appendChild(mc);
+    ab.appendChild(tr);
+  });
+
+  const ips = s.localIps || [];
+  const dl=$('ip-list'); dl.innerHTML='';
+  ips.forEach(i=>{ const o=document.createElement('option'); o.value=i.address; o.label=i.name+(i.address.includes(':')?' (IPv6)':''); dl.appendChild(o); });
+  if(!$('f-listen').value && ips.length) $('f-listen').value = ips[0].address;
+  $('ip-hint').textContent = ips.length
+    ? '本机网卡 IP：' + ips.map(i=>`${i.address}  (${i.name}${i.address.includes(':')?', IPv6':''})`).join('    ')
+    : '未检测到本机地址，请手动填写监听地址';
+
+  // 设置区
+  $('s-interval').value=s.settings.intervalSec;
+  $('s-auto').checked=!!s.settings.autoRecover;
+  $('s-unknown').checked=!!s.settings.removeUnknown;
+  $('s-fw').checked=!!s.settings.applyFirewall;
+  const hsel=$('s-host');
+  if(![...hsel.options].some(o=>o.value===s.settings.listenHost)){
+    const o=document.createElement('option'); o.value=s.settings.listenHost; o.textContent='自定义（'+s.settings.listenHost+'）';
+    hsel.appendChild(o);
+  }
+  hsel.value=s.settings.listenHost;
+  $('s-port').value=s.settings.listenPort;
+  $('s-auth').checked=!!s.settings.authEnabled;
+  $('s-token').value=s.settings.authToken||'';
+  const lanIp = ips.find(i=>!i.address.includes(':')) || ips[0];
+  $('remote-url').textContent = `http://${lanIp?lanIp.address:'本机IP'}:${s.settings.listenPort}`;
+
+  const lg=$('logs'); lg.innerHTML='';
+  s.logs.forEach(l=>{
+    const d=el('div'); d.className='l-'+l.level;
+    d.textContent=`${new Date(l.time).toLocaleTimeString('zh-CN')} [${l.level}] ${l.message}`;
+    lg.appendChild(d);
+  });
+}
+
+/* ---------- 服务面板（独立加载，避免轮询拖慢状态） ---------- */
+async function loadService(){
+  let r;
+  try{ r = await api('/api/service','GET'); }catch(e){ return; }
+  const st = r.status||{};
+  const badge=$('svc-badge');
+  if(!st.installed){ badge.textContent='未安装'; badge.className='badge b-err'; }
+  else if(st.running){ badge.textContent='运行中（'+(st.startMode||'')+'）'; badge.className='badge b-ok'; }
+  else { badge.textContent='已停止（'+(st.startMode||'')+'）'; badge.className='badge b-warn'; }
+  if(r.runningAsService){ badge.textContent='当前正以服务方式运行'; badge.className='badge b-ok'; }
+  if(st.installed && !st.pathMatches){
+    $('svc-path').textContent = '⚠ 服务指向 ' + st.binaryPath + '，与当前程序不一致，建议卸载后重装。';
+  } else {
+    $('svc-path').textContent = '服务程序路径：' + (r.exePath || '(dotnet 运行态，不能安装服务)');
+  }
+  const installed=!!st.installed, running=!!st.running;
+  $('svc-install').disabled = installed || !r.isAdmin;
+  $('svc-uninstall').disabled = !installed || !r.isAdmin;
+  $('svc-start').disabled = !installed || running;
+  $('svc-stop').disabled = !installed || !running;
+}
+$('svc-install').onclick = async () => {
+  if(!confirm('把本程序注册为 Windows 服务并设为开机自启？（需要管理员权限）')) return;
+  const r=await api('/api/service/install','POST'); alert(r.message||'完成'); loadService();
+};
+$('svc-uninstall').onclick = async () => {
+  if(!confirm('卸载后开机将不再自动运行本工具，确定？')) return;
+  const r=await api('/api/service/uninstall','POST'); alert(r.message||'完成'); loadService();
+};
+$('svc-start').onclick = async () => { const r=await api('/api/service/start','POST'); if(!r.ok) alert(r.message); loadService(); };
+$('svc-stop').onclick = async () => { const r=await api('/api/service/stop','POST'); if(!r.ok) alert(r.message); loadService(); };
+
+/* ---------- 表单 ---------- */
+function edit(r){
+  editingId=r.id;
+  $('f-listen').value=r.listenAddress; $('f-lport').value=r.listenPort;
+  $('f-conn').value=r.connectAddress; $('f-cport').value=r.connectPort;
+  $('f-note').value=r.note||''; $('f-fw').checked=!!r.openFirewall;
+  $('btn-save').textContent='更新并立即生效';
+  refreshModeBadge();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function clearForm(){
+  editingId=null;
+  ['f-lport','f-conn','f-cport','f-note'].forEach(i=>$(i).value='');
+  $('f-listen').value='';
+  $('f-fw').checked=false;
+  $('btn-save').textContent='保存并立即生效';
+  refreshModeBadge();
+  // 重新带出默认本机 IP
+  const ips = ($('ip-hint').textContent.match(/\d{1,3}(?:\.\d{1,3}){3}/g))||[];
+  if(ips.length) $('f-listen').value = ips[0];
+}
+
+$('btn-clear').onclick=clearForm;
+$('btn-any').onclick=()=>{ $('f-listen').value='0.0.0.0'; refreshModeBadge(); };
+$('btn-any6').onclick=()=>{ $('f-listen').value='::'; refreshModeBadge(); };
+
+$('btn-save').onclick=async()=>{
+  const r={
+    listenAddress:$('f-listen').value.trim(),
+    listenPort:parseInt($('f-lport').value,10),
+    connectAddress:$('f-conn').value.trim(),
+    connectPort:parseInt($('f-cport').value,10),
+    note:$('f-note').value.trim(),
+    openFirewall:$('f-fw').checked,
+    enabled:true,
+  };
+  if(!r.listenAddress||!r.connectAddress){ alert('请填写监听地址和目标地址'); return; }
+  if(!r.listenPort||!r.connectPort){ alert('请填写监听端口和目标端口'); return; }
+  const res = editingId ? await api('/api/rules/'+editingId,'PUT',r) : await api('/api/rules','POST',r);
+  alert(res.message || (res.ok?'成功':'失败'));
+  if(res.ok && !editingId) clearForm();
+  load();
+};
+
+async function toggle(id){ const r=await api('/api/rules/'+id+'/toggle','POST'); if(!r.ok) alert(r.message); load(); }
+async function del(id){ if(!confirm('确定删除这条规则？会同时从系统中移除。')) return; const r=await api('/api/rules/'+id,'DELETE'); if(!r.ok) alert(r.message); load(); }
+
+/* ---------- 导入导出 ---------- */
+$('btn-export').onclick = async () => {
+  try{
+    const t = localStorage.getItem('pp_token');
+    const res = await fetch('/api/rules/export', {headers: t?{'X-Auth-Token':t}:{}});
+    if(res.status===401){ showLogin(); return; }
+    const blob = await res.blob();
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='portproxy-rules-'+new Date().toISOString().slice(0,10)+'.json';
+    a.click(); URL.revokeObjectURL(a.href);
+  }catch(e){ alert('导出失败：'+e.message); }
+};
+
+$('btn-import').onclick = () => $('imp-file').click();
+$('imp-file').onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  let data;
+  try{ data = JSON.parse(await f.text()); }
+  catch{ alert('不是合法的 JSON 文件'); e.target.value=''; return; }
+  const rules = Array.isArray(data) ? data : data.rules;
+  if(!rules || !rules.length){ alert('文件里没有规则'); e.target.value=''; return; }
+  const replace = $('imp-mode').value === 'replace';
+  if(replace && !confirm(`替换模式：将清空现有规则，只保留导入的 ${rules.length} 条，确定？`)) return;
+  try{
+    const r = await api('/api/rules/import','POST',{replace, rules});
+    alert(r.message || (r.ok?'导入完成':'导入失败'));
+  }catch(err){ alert('导入失败：'+err.message); }
+  e.target.value=''; load();
+};
+
+/* ---------- 全量应用 / 清空 ---------- */
+$('btn-apply').onclick=async()=>{ const r=await api('/api/apply','POST'); alert(r.message); load(); };
+$('btn-reset').onclick=async()=>{
+  if(!confirm('将清空系统内全部 portproxy 规则（已登记的规则会立即重新应用）。确定继续？')) return;
+  const r=await api('/api/reset','POST'); alert(r.message); load();
+};
+
+/* ---------- 设置 ---------- */
+$('btn-settings').onclick=async()=>{
+  const r=await api('/api/settings','POST',{
+    intervalSec:parseInt($('s-interval').value,10)||30,
+    autoRecover:$('s-auto').checked,
+    removeUnknown:$('s-unknown').checked,
+    applyFirewall:$('s-fw').checked,
+    listenHost:$('s-host').value,
+    listenPort:parseInt($('s-port').value,10)||5577,
+    authEnabled:$('s-auth').checked,
+    authToken:$('s-token').value.trim(),
+  });
+  if(r.ok===false){ alert(r.message||'保存失败'); return; }
+  alert((r.message||'设置已保存') + (r.settings&&r.settings.authEnabled ? '\n访问令牌：'+r.settings.authToken : ''));
+  if(r.bindingChanged){
+    $('btn-restart').hidden=false;
+    if(confirm('Web 监听配置已变更，立即重启以生效？')) $('btn-restart').click();
+  }
+  load();
+};
+
+$('btn-restart').onclick=async()=>{
+  if(!confirm('重启后页面会短暂中断，确定？')) return;
+  try{ await api('/api/app/restart','POST'); }catch(e){}
+  $('btn-restart').hidden=true;
+  setTimeout(load, 4000);
+  setTimeout(loadService, 4000);
+};
+
+/* ---------- 启动 ---------- */
+load();
+loadService();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

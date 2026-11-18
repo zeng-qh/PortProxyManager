@@ -1,0 +1,16 @@
+# 构建产物
+bin/
+obj/
+publish/
+
+# IDE
+.vs/
+*.user
+*.suo
+
+# 运行时数据（首次启动自动重建）
+data/
+logs/
+
+# 其他
+*.log

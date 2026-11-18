@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>PortProxyManager</RootNamespace>
+    <AssemblyName>PortProxyManager</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UserSecretsId>portproxy-manager</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Windows 服务宿主：注册为系统服务实现开机自启 -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 内嵌页面：即使 wwwroot 不在程序目录，页面也一定能打开 -->
+    <EmbeddedResource Include="wwwroot\index.html" LogicalName="PortProxyManager.index.html" />
+  </ItemGroup>
+
+</Project>
