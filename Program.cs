@@ -38,7 +38,9 @@ Directory.CreateDirectory(dataDir);
 Directory.CreateDirectory(logDir);
 
 var log = new LogSink(logDir);
-var store = new RuleStore(Path.Combine(dataDir, "rules.json"), Path.Combine(dataDir, "settings.json"));
+var settingsFile = Path.Combine(dataDir, "settings.json");
+var firstRun = !File.Exists(settingsFile);
+var store = new RuleStore(Path.Combine(dataDir, "rules.json"), settingsFile);
 
 // 必须在创建 builder 时一次性指定：运行后用 UseWebRoot 改会抛 NotSupportedException
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -73,13 +75,13 @@ builder.Services.AddHostedService<WatchdogService>();
 
 var app = builder.Build();
 
-// 访问令牌鉴权：启用后所有 /api/*（除 /api/auth）必须携带令牌（请求头 X-Auth-Token 或 ?token=）
+// 访问令牌鉴权：启用后所有 /api/*（仅豁免精确的 /api/auth）必须携带令牌（请求头 X-Auth-Token 或 ?token=）
 app.Use(async (ctx, next) =>
 {
     var st = store.LoadSettings();
     var path = ctx.Request.Path;
     if (st.AuthEnabled && !string.IsNullOrEmpty(st.AuthToken)
-        && path.StartsWithSegments("/api") && !path.StartsWithSegments("/api/auth"))
+        && path.StartsWithSegments("/api") && path != "/api/auth")
     {
         var provided = ctx.Request.Headers["X-Auth-Token"].FirstOrDefault()
                        ?? ctx.Request.Query["token"].FirstOrDefault();
@@ -189,6 +191,21 @@ api.MapGet("/auth", (HttpRequest req, RuleStore s) =>
     return provided == st.AuthToken
         ? Results.Ok(new { ok = true, authRequired = true })
         : Results.Json(new { ok = false, message = "访问令牌错误" }, statusCode: 401);
+});
+
+// 修改访问令牌（受鉴权保护：必须携带当前令牌；默认 admin 属于首次部署的初始口令）
+api.MapPost("/auth/change", (ChangeTokenRequest input, RuleStore s, LogSink l) =>
+{
+    var t = (input.NewToken ?? "").Trim();
+    if (!RuleValidator.IsTokenValid(t, out var err))
+        return Results.BadRequest(new { ok = false, message = err });
+
+    var st = s.LoadSettings();
+    st.AuthToken = t;
+    st.AuthEnabled = true;
+    s.SaveSettings(st);
+    l.Warn("访问令牌已修改，已登录的其他设备需重新输入新令牌");
+    return Results.Ok(new { ok = true, message = "令牌已更新，请用新令牌重新登录其他设备" });
 });
 
 // 新增规则：保存后立刻执行 netsh，立即生效
@@ -379,7 +396,10 @@ api.MapPost("/settings", async (AppSettings input, RuleStore s, NetshService net
     var old = s.LoadSettings();
     input.ListenHost = host;
     if (input.AuthEnabled && string.IsNullOrWhiteSpace(input.AuthToken))
-        input.AuthToken = Guid.NewGuid().ToString("N");
+        input.AuthToken = old.AuthToken; // 留空则沿用当前令牌
+    // 开启鉴权时不允许沿用默认 admin（首次进入会被强制修改，这里兜底拦截）
+    if (input.AuthEnabled && !RuleValidator.IsTokenValid(input.AuthToken, out var tokenErr))
+        return Results.BadRequest(new { ok = false, message = tokenErr });
 
     var bindingChanged = !string.Equals(old.ListenHost, input.ListenHost, StringComparison.OrdinalIgnoreCase)
                          || old.ListenPort != input.ListenPort;
@@ -546,6 +566,8 @@ Console.WriteLine($" 管理页面: {url}");
 Console.WriteLine($" 数据目录: {dataDir}");
 Console.WriteLine($" 页面目录: {webRoot ?? "(未找到 wwwroot，使用内嵌页面)"}");
 Console.WriteLine($" 管理员权限: {NetshService.IsAdministrator()}");
+if (firstRun)
+    Console.WriteLine(" 首次运行: 访问令牌默认 admin，进入页面后会要求你立即修改；忘记令牌可删除 data\\settings.json 重置");
 Console.WriteLine("==============================================");
 
 app.Run();

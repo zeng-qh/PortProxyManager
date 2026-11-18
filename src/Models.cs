@@ -43,11 +43,11 @@ public sealed class AppSettings
     /// <summary>Web 管理页监听端口。</summary>
     public int ListenPort { get; set; } = 5577;
 
-    /// <summary>启用访问令牌鉴权：启用后所有 /api/* 请求必须携带令牌。</summary>
-    public bool AuthEnabled { get; set; }
+    /// <summary>启用访问令牌鉴权：默认开启，所有 /api/* 请求必须携带令牌。</summary>
+    public bool AuthEnabled { get; set; } = true;
 
-    /// <summary>访问令牌，其他设备访问管理页时需要输入。</summary>
-    public string AuthToken { get; set; } = "";
+    /// <summary>访问令牌，默认 admin，首次进入强制修改；忘记时删除 data\settings.json 重置。</summary>
+    public string AuthToken { get; set; } = "admin";
 }
 
 /// <summary>Windows 服务状态（sc / reg 查询结果）。</summary>
@@ -71,6 +71,12 @@ public sealed class ImportRequest
     public bool Replace { get; set; }
 
     public List<PortProxyRule> Rules { get; set; } = new();
+}
+
+/// <summary>修改访问令牌请求。</summary>
+public sealed class ChangeTokenRequest
+{
+    public string NewToken { get; set; } = "";
 }
 
 public sealed class LogEntry
@@ -131,5 +137,24 @@ public static class RuleValidator
             (false, true) => "v4tov6",
             _ => "v4tov4",
         };
+    }
+
+    public const string DefaultToken = "admin";
+
+    /// <summary>访问令牌校验：至少 4 位、不能用默认 admin。</summary>
+    public static bool IsTokenValid(string? t, out string error)
+    {
+        error = "";
+        if (string.IsNullOrWhiteSpace(t) || t.Trim().Length < 4)
+        {
+            error = "令牌至少需要 4 个字符";
+            return false;
+        }
+        if (t.Trim().Equals(DefaultToken, StringComparison.OrdinalIgnoreCase))
+        {
+            error = "不能使用默认令牌 admin，请换一个";
+            return false;
+        }
+        return true;
     }
 }

@@ -86,6 +86,19 @@
     <input type="password" id="login-token" placeholder="访问令牌" autocomplete="off">
     <button class="primary" id="btn-login">进入</button>
     <div id="login-err"></div>
+    <div class="muted" style="font-size:12px;margin-top:8px">忘记令牌？到服务端删除 <span class="mono">data\settings.json</span> 即可重置为默认。</div>
+  </div>
+</div>
+
+<div id="change-mask" hidden>
+  <div class="login-card">
+    <h2>🔑 首次使用：修改默认令牌</h2>
+    <div class="muted" style="font-size:13px">当前令牌还是默认的 <span class="mono">admin</span>，请先设置新令牌再继续使用。</div>
+    <input type="password" id="chg-token" placeholder="新令牌（至少 4 位）" autocomplete="new-password">
+    <input type="password" id="chg-token2" placeholder="再输入一次确认" autocomplete="new-password">
+    <button class="primary" id="btn-change">保存新令牌并进入</button>
+    <div id="chg-err"></div>
+    <div class="muted" style="font-size:12px;margin-top:8px">忘记令牌：到服务端删除 <span class="mono">data\settings.json</span> 后重启程序即可重置。</div>
   </div>
 </div>
 
@@ -170,8 +183,8 @@
       </div>
       <div class="field"><label>Web 端口</label><input type="number" id="s-port" style="width:100px"></div>
       <label class="chk"><input type="checkbox" id="s-auth"> 启用访问令牌</label>
-      <div class="field"><label>访问令牌（可修改，启用鉴权后其他设备需输入）</label>
-        <input type="text" id="s-token" class="mono" style="width:300px" placeholder="启用鉴权后自动生成" autocomplete="off">
+      <div class="field"><label>访问令牌（默认 admin，首次进入会强制修改）</label>
+        <input type="text" id="s-token" class="mono" style="width:300px" placeholder="默认 admin，建议修改" autocomplete="off">
       </div>
       <button class="primary" id="btn-settings">保存设置</button>
       <button id="btn-restart" hidden>重启生效</button>
@@ -246,6 +259,30 @@ $('btn-login').onclick = async () => {
 };
 $('login-token').addEventListener('keydown', e => { if(e.key==='Enter') $('btn-login').click(); });
 
+/* 首次使用：令牌仍为默认 admin 时强制修改 */
+let changeShown = false;
+function showChange(){
+  if(changeShown) return;
+  changeShown = true;
+  $('login-mask').hidden = true;
+  $('change-mask').hidden = false;
+  $('chg-token').focus();
+}
+$('btn-change').onclick = async () => {
+  const t = $('chg-token').value.trim(), t2 = $('chg-token2').value.trim();
+  if(t.length < 4){ $('chg-err').textContent = '令牌至少 4 个字符'; return; }
+  if(t.toLowerCase() === 'admin'){ $('chg-err').textContent = '不能使用默认 admin，请换一个'; return; }
+  if(t !== t2){ $('chg-err').textContent = '两次输入不一致'; return; }
+  try{
+    const r = await api('/api/auth/change','POST',{newToken:t});
+    if(r.ok === false){ $('chg-err').textContent = r.message || '修改失败'; return; }
+    localStorage.setItem('pp_token', t);
+    $('change-mask').hidden = true; changeShown = false; $('chg-err').textContent = '';
+    load();
+  }catch(e){ $('chg-err').textContent = '请求失败：' + e.message; }
+};
+$('chg-token').addEventListener('keydown', e => { if(e.key==='Enter') $('btn-change').click(); });
+
 async function api(url, method, body){
   const opt = {method, headers:{}};
   const t = localStorage.getItem('pp_token');
@@ -275,6 +312,9 @@ async function load(){
   try{ s = await api('/api/state','GET'); }
   catch(e){ if(!authShown) $('stat').textContent='无法连接服务：'+e.message; return; }
   curSettings = s.settings;
+
+  // 令牌仍是默认 admin（首次运行）→ 强制修改
+  if(s.settings.authEnabled && (s.settings.authToken||'').toLowerCase()==='admin'){ showChange(); return; }
 
   $('stat').innerHTML='';
   const items = [
